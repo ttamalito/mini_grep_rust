@@ -1,4 +1,4 @@
-use std::{error::Error, fs, vec};
+use std::{error::Error, fs, env};
 
 pub fn run<'a>(config: &'a Config) -> Result<Vec<String>, Box<dyn Error>> {
     let query = &config.query; // the string that we have to look for in the file
@@ -12,14 +12,19 @@ pub fn run<'a>(config: &'a Config) -> Result<Vec<String>, Box<dyn Error>> {
     //println!("Te content of the file is: {}", content);
 
 
-    Result::Ok(search(query, content))
+    if config.ignore_case {
+        Result::Ok(search_case_insensitive(query, content))
+    } else {
+        Result::Ok(search(query, content))
+    }
 }
 
 
 
 pub struct Config {
     query: String,
-    file_path: String
+    file_path: String,
+    ignore_case: bool
 }
 
 impl Config {
@@ -34,7 +39,8 @@ impl Config {
     
         Config {
             query: query.clone(),
-            file_path: file_path.clone()
+            file_path: file_path.clone(),
+            ignore_case: env::var("IGNORE_CASE").is_ok()
         }
     }
 
@@ -69,6 +75,21 @@ pub fn search<'a>(query: &str, content: String) -> Vec<String> {
 
 } // end of search
 
+pub fn search_case_insensitive(query: &str, content: String) -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    // make the query lowercase
+    let query = &query.to_lowercase();
+
+    for line in content.lines() {
+        if line.to_lowercase().contains(query) {
+            // add it to the result
+            result.push(line.to_string());
+        }
+    } // end of for loop
+    // return the vector
+    result
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -83,4 +104,19 @@ safe, fast, productive.
         Pick three.";
         assert_eq!(vec!["safe, fast, productive."], search(query, content.to_string()));
     } // end one_result()
+
+    #[test]
+    fn case_insensitive() {
+        let query = "rUsT";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.
+Trust me.";
+
+        assert_eq!(
+            vec!["Rust:", "Trust me."],
+            search_case_insensitive(query, contents.to_string())
+        );
+    }
 }
